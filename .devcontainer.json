@@ -1,0 +1,24 @@
+{
+    "name": "Godot-OpenCV DevContainer",
+    "image": "kauzoo/ar-docker:latest",
+    // Default path to open when attaching to a new container.
+    "workspaceFolder": "/workspaces/",
+
+    //"mounts": ["source=./,target=/home/ardocker/ar-workspace/,type=bind"],
+    
+    "customizations": {
+      "vscode": {
+        "settings": {"godotTools.lsp.headless": true
+      },
+      "extensions": ["geequlim.godot-tools", "ms-vscode.cpptools-extension-pack", "guyutongxue.cpp-reference", "bierner.docs-view"]
+      }
+    },
+  
+    // Container user VS Code should use when connecting
+    "remoteUser": "root",
+  
+    // Set environment variables for VS Code and sub-processes
+    "remoteEnv": {  "WORKSPACE_FOLDER": "arworkspace",
+                    "GODOT_PROJECT_NAME": "demo"            
+    }
+}

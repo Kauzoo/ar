@@ -1,0 +1,83 @@
+[gd_scene load_steps=5 format=3 uid="uid://trsml2gs8ogq"]
+
+[ext_resource type="Script" uid="uid://colbmmcey6upn" path="res://scripts/Gameplay.gd" id="1_2ycnw"]
+[ext_resource type="Script" uid="uid://b00jl2b1gji83" path="res://scripts/slider.gd" id="2_xtdpg"]
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_2ycnw"]
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_xtdpg"]
+
+[node name="Demo" type="Node2D" node_paths=PackedStringArray("camera_canvas")]
+script = ExtResource("1_2ycnw")
+camera_canvas = NodePath("CameraCanvas")
+
+[node name="CameraCanvas" type="Sprite2D" parent="."]
+position = Vector2(640, 360)
+texture = SubResource("PlaceholderTexture2D_2ycnw")
+
+[node name="Marker2D" type="Marker2D" parent="CameraCanvas"]
+gizmo_extents = 37.5
+
+[node name="Sprite2D" type="Sprite2D" parent="CameraCanvas"]
+show_behind_parent = true
+scale = Vector2(640, 480)
+texture = SubResource("PlaceholderTexture2D_xtdpg")
+
+[node name="GUI" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 1282.0
+offset_bottom = 721.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="GUI"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 2.0
+offset_right = 183.0
+offset_bottom = 717.0
+
+[node name="OptionButton" type="OptionButton" parent="GUI/VBoxContainer"]
+layout_mode = 2
+item_count = 2
+popup/item_0/text = "THRESH_BINARY"
+popup/item_0/id = 0
+popup/item_1/text = "THRESH_BINARY_INV"
+popup/item_1/id = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="GUI/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Threshold" type="VBoxContainer" parent="GUI/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+script = ExtResource("2_xtdpg")
+
+[node name="Label" type="Label" parent="GUI/VBoxContainer/HBoxContainer/Threshold"]
+layout_mode = 2
+text = "Threshold"
+
+[node name="VSlider" type="VSlider" parent="GUI/VBoxContainer/HBoxContainer/Threshold"]
+layout_mode = 2
+size_flags_horizontal = 1
+size_flags_vertical = 3
+max_value = 255.0
+
+[node name="LineEdit" type="LineEdit" parent="GUI/VBoxContainer/HBoxContainer/Threshold"]
+layout_mode = 2
+placeholder_text = "255"
+
+[node name="ThresholdMax" type="VBoxContainer" parent="GUI/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+script = ExtResource("2_xtdpg")
+
+[node name="Label" type="Label" parent="GUI/VBoxContainer/HBoxContainer/ThresholdMax"]
+layout_mode = 2
+text = "ThresMax"
+
+[node name="VSlider" type="VSlider" parent="GUI/VBoxContainer/HBoxContainer/ThresholdMax"]
+layout_mode = 2
+size_flags_horizontal = 1
+size_flags_vertical = 3
+
+[node name="LineEdit" type="LineEdit" parent="GUI/VBoxContainer/HBoxContainer/ThresholdMax"]
+layout_mode = 2

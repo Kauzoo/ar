@@ -1,3 +1,7 @@
 .sconsign.dblite
 opencv/*
 src/*.os
+src/*.obj
+
+# pyhton venv
+.venv

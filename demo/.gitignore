@@ -18,3 +18,5 @@ mono_crash.*.json
 # godot-cpp-extension specific ignores
 bin/*.so*
 bin/*.dll*
+bin/*.lib
+bin/*.exp

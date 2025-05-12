@@ -1,0 +1,1 @@
+xcopy /y /v %~dp0\opencv_*.dll %~dp0\demo\bin\ /e

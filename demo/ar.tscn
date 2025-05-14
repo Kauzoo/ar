@@ -1,37 +1,57 @@
-[gd_scene load_steps=7 format=3 uid="uid://trsml2gs8ogq"]
+[gd_scene load_steps=9 format=3 uid="uid://trsml2gs8ogq"]
 
 [ext_resource type="Script" uid="uid://colbmmcey6upn" path="res://scripts/Gameplay.gd" id="1_2ycnw"]
+[ext_resource type="Script" uid="uid://c7yptghyx28ki" path="res://scripts/camera_canvas_helper.gd" id="2_hi88e"]
 [ext_resource type="PackedScene" uid="uid://dwrw7oynkgj5b" path="res://optionbutton.tscn" id="2_tcknp"]
 [ext_resource type="PackedScene" uid="uid://tyew70wx006o" path="res://slider.tscn" id="3_hi88e"]
 [ext_resource type="Script" uid="uid://rn1dlddi5eio" path="res://scripts/SliderBehaviour.gd" id="3_tcknp"]
 
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_tcknp"]
+
 [sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_2ycnw"]
 
-[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_xtdpg"]
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_hi88e"]
 
-[node name="Demo" type="Node2D" node_paths=PackedStringArray("camera_canvas") groups=["cvcamera"]]
+[node name="Demo" type="Node2D" node_paths=PackedStringArray("camera_canvas", "overlay_canvas") groups=["cvcamera"]]
 script = ExtResource("1_2ycnw")
-camera_canvas = NodePath("CameraCanvas")
-video_path = "/home/nyr/source/AR/MarkerCube.mp4"
+camera_canvas = NodePath("Canvases/CameraCanvasMain")
+overlay_canvas = NodePath("Canvases/CameraCanvasRect")
+video_path = "res://assets/MarkerCube.mp4"
 
-[node name="CameraCanvas" type="Sprite2D" parent="."]
+[node name="Canvases" type="Marker2D" parent="."]
+gizmo_extents = 142.0
+
+[node name="CameraCanvasRect" type="Sprite2D" parent="Canvases"]
+z_index = 1
+position = Vector2(1090.92, 366.4)
+scale = Vector2(1.255, 1.255)
+script = ExtResource("2_hi88e")
+
+[node name="DebugMarker" type="Marker2D" parent="Canvases/CameraCanvasRect"]
+
+[node name="DebugSprite" type="Sprite2D" parent="Canvases/CameraCanvasRect"]
+scale = Vector2(640, 480)
+texture = SubResource("PlaceholderTexture2D_tcknp")
+
+[node name="CameraCanvasMain" type="Sprite2D" parent="Canvases"]
 position = Vector2(1090.92, 366.4)
 scale = Vector2(1.255, 1.255)
 texture = SubResource("PlaceholderTexture2D_2ycnw")
+script = ExtResource("2_hi88e")
 
-[node name="Marker2D" type="Marker2D" parent="CameraCanvas"]
+[node name="DebugMarker" type="Marker2D" parent="Canvases/CameraCanvasMain"]
 gizmo_extents = 37.5
 
-[node name="Sprite2D" type="Sprite2D" parent="CameraCanvas"]
+[node name="DebugSprite" type="Sprite2D" parent="Canvases/CameraCanvasMain"]
 show_behind_parent = true
 scale = Vector2(640, 480)
-texture = SubResource("PlaceholderTexture2D_xtdpg")
+texture = SubResource("PlaceholderTexture2D_hi88e")
 
 [node name="GUI" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 0
-offset_right = 1282.0
-offset_bottom = 721.0
+offset_right = 1925.0
+offset_bottom = 1077.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="GUI"]
 layout_mode = 0
@@ -137,6 +157,15 @@ text = "Threshold C"
 max_value = 30.0
 value = 5.0
 
+[node name="Button" type="Button" parent="GUI"]
+layout_mode = 0
+offset_left = 1033.0
+offset_top = 685.0
+offset_right = 1126.0
+offset_bottom = 716.0
+toggle_mode = true
+text = "Play/Pause"
+
 [connection signal="update_value" from="GUI/VBoxContainer/ThreshSettings/ImageType/OptionButton" to="." method="_update_image_type"]
 [connection signal="update_value" from="GUI/VBoxContainer/ThreshSettings/ThreshButton/OptionButton" to="." method="_update_threshold_type"]
 [connection signal="update_value" from="GUI/VBoxContainer/ThreshSettings/AdaptiveThreshType/OptionButton" to="." method="_update_adaptive_thresh_type"]
@@ -144,6 +173,7 @@ value = 5.0
 [connection signal="update_value" from="GUI/VBoxContainer/HBoxContainer/ThresholdMax" to="." method="_update_threshold_max_value"]
 [connection signal="update_value" from="GUI/VBoxContainer/HBoxContainer/BlockSize" to="." method="_update_block_size"]
 [connection signal="update_value" from="GUI/VBoxContainer/HBoxContainer/ThreshC" to="." method="_update_threshold_c"]
+[connection signal="pressed" from="GUI/Button" to="." method="toggle_video_playback"]
 
 [editable path="GUI/VBoxContainer/ThreshSettings/ImageType"]
 [editable path="GUI/VBoxContainer/ThreshSettings/ThreshButton"]

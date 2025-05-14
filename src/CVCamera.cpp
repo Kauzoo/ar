@@ -32,6 +32,12 @@ void CVCamera::_bind_methods()
     ClassDB::bind_method(D_METHOD("update_threshold_adaptive_type"), &CVCamera::update_threshold_adaptive_type);  
     ClassDB::bind_method(D_METHOD("update_threshold_blocksize"), &CVCamera::update_threshold_blocksize);  
     ClassDB::bind_method(D_METHOD("update_threshold_c"), &CVCamera::update_threshold_c);
+    ClassDB::bind_method(D_METHOD("find_rectangles"), &CVCamera::find_rectangles);
+    ClassDB::bind_method(D_METHOD("get_overlay_image"), &CVCamera::get_overlay_image);
+    ClassDB::bind_method(D_METHOD("set_bounding_box_min_width"), &CVCamera::set_bounding_box_min_width);
+    ClassDB::bind_method(D_METHOD("get_bounding_box_min_width"), &CVCamera::get_bounding_box_min_width);
+    
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "bounding_box_min_width"), "set_bounding_box_min_width", "get_bounding_box_min_width");
 }
 
 CVCamera::CVCamera()
@@ -110,6 +116,9 @@ void CVCamera::update_frame()
 
     cv::cvtColor(frame_raw, frame_rgb, cv::COLOR_BGR2RGB);
     cv::cvtColor(frame_rgb, frame_gray, cv::COLOR_RGB2GRAY);
+    // TODO Wtf are we doing here?
+    frame_overlay = cv::Mat::zeros(frame_raw.size(), CV_8UC4);
+    cv::cvtColor(frame_overlay, frame_overlay, cv::COLOR_BGRA2RGBA);
 }
 
 Ref<Image> CVCamera::mat_to_image(cv::Mat mat)
@@ -169,7 +178,7 @@ Ref<Image> CVCamera::get_greyscale_image()
 Ref<Image> CVCamera::get_threshold_image()
 {
     update_frame();
-    if (threshold_value <= 0.2) {
+    if (threshold_value <= 0.0) {
         // Adaptive threshold
         // TODO Fix threshold type to limit values to applicable range
         cv::adaptiveThreshold(frame_gray, frame_threshold, threshold_max_value, threshold_adaptive_type, threshold_simple_type, threshold_blocksize, threshold_c);
@@ -178,6 +187,71 @@ Ref<Image> CVCamera::get_threshold_image()
         cv::threshold(frame_gray, frame_threshold, threshold_value, threshold_max_value, threshold_simple_type);
     }
     return mat_to_image(frame_threshold);
+}
+
+Ref<Image> CVCamera::get_overlay_image()
+{
+    update_frame();
+    return mat_to_image(frame_overlay);
+}
+
+void CVCamera::find_rectangles()
+{
+    // Find contours
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(frame_threshold, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
+    for (auto i = 0; i < contours.size(); i++)
+    {
+        // Approximate found cotours more efficently using polygonal curves
+        std::vector<cv::Point> approx;
+        cv::approxPolyDP(contours[i], approx, cv::arcLength(contours[i], true) * 0.02, true);
+
+        // Filter for contours with 4 Points (we are only interested in boxes)
+        if (approx.size() != 4)
+        {
+            continue;
+        }
+
+        // Create bounding boxes 
+        cv::Rect bounding_box = cv::boundingRect(approx);
+        
+        // Filter bounding boxes that are to big or small
+        int max_width = frame_raw.cols - bounding_box_max_width;
+        int max_height = frame_raw.rows - bounding_box_max_height;
+        if (!(bounding_box.width >= bounding_box_min_width && bounding_box.height >= bounding_box_min_height && bounding_box.width <= max_width && bounding_box.height <= max_height))
+        {
+            continue;
+        }
+
+        // Remove non convex contours
+        if (!cv::isContourConvex(approx))
+        {
+            continue;
+        }
+
+        bool isClosed = true;
+        auto color = cv::Scalar(255, 0, 0);
+        cv::polylines(frame_overlay, approx, isClosed, color);
+
+        // Subdivide edge
+        auto edge_a = cv::Point2f(approx[1]) - cv::Point2f(approx[0]);
+        auto edge_b = cv::Point2f(approx[3]) - cv::Point2f(approx[0]);
+        auto edge_c = cv::Point2f(approx[1]) - cv::Point2f(approx[2]);
+        auto edge_d = cv::Point2f(approx[3]) - cv::Point2f(approx[2]);
+        auto circle_color = cv::Scalar(0, 255, 0);
+        std::vector<cv::Point> subdivision_vector;
+        for (auto j = 1; j <= 7; j++) {
+            std::vector<cv::Point2f> buf;
+            buf.insert(buf.begin(), cv::Point2f(approx[0]) + edge_a * (j / 7.0));
+            buf.insert(buf.begin(), cv::Point2f(approx[0]) + edge_b * (j / 7.0));
+            buf.insert(buf.begin(), cv::Point2f(approx[2]) + edge_c * (j / 7.0));
+            buf.insert(buf.begin(), cv::Point2f(approx[2]) + edge_d * (j / 7.0));
+            for (auto k = 0; k < buf.size(); k++) {
+                cv::circle(frame_overlay, buf[k], 3, circle_color);
+            }
+        }
+    }
+    return;
 }
 
 void CVCamera::flip(bool flip_lr, bool flip_ud)

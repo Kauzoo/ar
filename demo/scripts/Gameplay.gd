@@ -3,19 +3,28 @@ extends Node
 var camera : CVCamera = CVCamera.new()
 @export_group("Canvas")
 @export var camera_canvas : Sprite2D;
+@export var overlay_canvas : Sprite2D
 var texture : ImageTexture;
+var overlay_texture : ImageTexture
 var timer_framerate: Timer;
 var image_type : int;
-@export var video_path : String 
+@export_file("*.mp4") var video_path : String 
 
 func _ready():
 	#camera.open(0, 1920, 1080);
-	var path = video_path
+	var path = ""
+	if OS.has_feature("editor"):
+		path = ProjectSettings.globalize_path(video_path)
+	else:
+		path = OS.get_executable_path().get_base_dir().path_join(video_path)
 	camera.open_file(path);
 	
 	camera.flip(false, false);
 	texture = ImageTexture.new();
+
+	overlay_texture = ImageTexture.new()
 	
+	# Setup playback
 	timer_framerate = Timer.new();
 	timer_framerate.one_shot = false;
 	timer_framerate.timeout.connect(on_timer_framerate);
@@ -37,6 +46,10 @@ func on_timer_framerate():
 			printerr("Unreckognized image type")
 			pass
 	camera_canvas.texture = texture;
+	camera.get_threshold_image()
+	camera.find_rectangles()
+	overlay_texture.set_image(camera.get_overlay_image())
+	overlay_canvas.texture = overlay_texture
 
 # Signals
 func _update_threshold_type(type : int):
@@ -65,4 +78,8 @@ func _update_threshold_c(c : float):
 
 func _update_adaptive_thresh_type(type : int):
 	camera.update_threshold_adaptive_type(type)
+	pass
+	
+func toggle_video_playback() -> void:
+	timer_framerate.paused = (!timer_framerate.paused) 
 	pass

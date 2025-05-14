@@ -9,3 +9,7 @@ src/*.obj
 # vscode
 .vscode
 *.code-workspace
+
+# JetBrains
+.idea/
+compile_commands.json

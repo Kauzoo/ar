@@ -15,7 +15,16 @@ run/main_scene="uid://trsml2gs8ogq"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+Enums="*res://scripts/Enums.gd"
+
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/mode=3
+
+[global_group]
+
+cvcamera=""

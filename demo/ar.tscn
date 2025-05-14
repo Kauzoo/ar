@@ -1,18 +1,22 @@
-[gd_scene load_steps=5 format=3 uid="uid://trsml2gs8ogq"]
+[gd_scene load_steps=7 format=3 uid="uid://trsml2gs8ogq"]
 
 [ext_resource type="Script" uid="uid://colbmmcey6upn" path="res://scripts/Gameplay.gd" id="1_2ycnw"]
-[ext_resource type="Script" uid="uid://b00jl2b1gji83" path="res://scripts/slider.gd" id="2_xtdpg"]
+[ext_resource type="PackedScene" uid="uid://dwrw7oynkgj5b" path="res://optionbutton.tscn" id="2_tcknp"]
+[ext_resource type="PackedScene" uid="uid://tyew70wx006o" path="res://slider.tscn" id="3_hi88e"]
+[ext_resource type="Script" uid="uid://rn1dlddi5eio" path="res://scripts/SliderBehaviour.gd" id="3_tcknp"]
 
 [sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_2ycnw"]
 
 [sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_xtdpg"]
 
-[node name="Demo" type="Node2D" node_paths=PackedStringArray("camera_canvas")]
+[node name="Demo" type="Node2D" node_paths=PackedStringArray("camera_canvas") groups=["cvcamera"]]
 script = ExtResource("1_2ycnw")
 camera_canvas = NodePath("CameraCanvas")
+video_path = "/home/nyr/source/AR/MarkerCube.mp4"
 
 [node name="CameraCanvas" type="Sprite2D" parent="."]
-position = Vector2(640, 360)
+position = Vector2(1090.92, 366.4)
+scale = Vector2(1.255, 1.255)
 texture = SubResource("PlaceholderTexture2D_2ycnw")
 
 [node name="Marker2D" type="Marker2D" parent="CameraCanvas"]
@@ -33,42 +37,72 @@ offset_bottom = 721.0
 layout_mode = 0
 offset_left = 4.0
 offset_top = 2.0
-offset_right = 183.0
-offset_bottom = 717.0
+offset_right = 441.0
+offset_bottom = 1078.0
 
-[node name="OptionButton" type="OptionButton" parent="GUI/VBoxContainer"]
+[node name="ThreshSettings" type="HBoxContainer" parent="GUI/VBoxContainer"]
 layout_mode = 2
-item_count = 2
+
+[node name="ImageType" parent="GUI/VBoxContainer/ThreshSettings" instance=ExtResource("2_tcknp")]
+layout_mode = 2
+
+[node name="Label" parent="GUI/VBoxContainer/ThreshSettings/ImageType" index="0"]
+text = "Image Type"
+
+[node name="OptionButton" parent="GUI/VBoxContainer/ThreshSettings/ImageType" index="1"]
+selected = 2
+popup/item_0/text = "RGB"
+popup/item_1/text = "GREYSCALE"
+popup/item_2/text = "THRESHOLD"
+
+[node name="ThreshButton" parent="GUI/VBoxContainer/ThreshSettings" instance=ExtResource("2_tcknp")]
+layout_mode = 2
+
+[node name="Label" parent="GUI/VBoxContainer/ThreshSettings/ThreshButton" index="0"]
+text = "Threshold Type"
+
+[node name="OptionButton" parent="GUI/VBoxContainer/ThreshSettings/ThreshButton" index="1"]
+item_count = 9
 popup/item_0/text = "THRESH_BINARY"
-popup/item_0/id = 0
 popup/item_1/text = "THRESH_BINARY_INV"
-popup/item_1/id = 1
+popup/item_2/text = "THRESH_TRUNC"
+popup/item_3/text = "THESH_TOZERO"
+popup/item_3/id = 3
+popup/item_4/text = "THRESH_TOZERO_INV"
+popup/item_4/id = 4
+popup/item_5/text = "THRESH_MASK"
+popup/item_5/id = 7
+popup/item_6/text = "THRESH_OTSU"
+popup/item_6/id = 8
+popup/item_7/text = "THRESH_TRIANGLE"
+popup/item_7/id = 16
+popup/item_8/text = "THRESH_DRYRUN"
+popup/item_8/id = 128
+
+[node name="AdaptiveThreshType" parent="GUI/VBoxContainer/ThreshSettings" instance=ExtResource("2_tcknp")]
+layout_mode = 2
+
+[node name="Label" parent="GUI/VBoxContainer/ThreshSettings/AdaptiveThreshType" index="0"]
+text = "AdapThreshTyoe"
+
+[node name="OptionButton" parent="GUI/VBoxContainer/ThreshSettings/AdaptiveThreshType" index="1"]
+item_count = 2
+popup/item_0/text = "MEAN_C"
+popup/item_1/text = "GAUSIAN_C"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="GUI/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Threshold" type="VBoxContainer" parent="GUI/VBoxContainer/HBoxContainer"]
+[node name="Threshold" parent="GUI/VBoxContainer/HBoxContainer" instance=ExtResource("3_hi88e")]
 layout_mode = 2
-script = ExtResource("2_xtdpg")
 
-[node name="Label" type="Label" parent="GUI/VBoxContainer/HBoxContainer/Threshold"]
-layout_mode = 2
+[node name="Label" parent="GUI/VBoxContainer/HBoxContainer/Threshold" index="0"]
 text = "Threshold"
-
-[node name="VSlider" type="VSlider" parent="GUI/VBoxContainer/HBoxContainer/Threshold"]
-layout_mode = 2
-size_flags_horizontal = 1
-size_flags_vertical = 3
-max_value = 255.0
-
-[node name="LineEdit" type="LineEdit" parent="GUI/VBoxContainer/HBoxContainer/Threshold"]
-layout_mode = 2
-placeholder_text = "255"
 
 [node name="ThresholdMax" type="VBoxContainer" parent="GUI/VBoxContainer/HBoxContainer"]
 layout_mode = 2
-script = ExtResource("2_xtdpg")
+script = ExtResource("3_tcknp")
 
 [node name="Label" type="Label" parent="GUI/VBoxContainer/HBoxContainer/ThresholdMax"]
 layout_mode = 2
@@ -78,6 +112,42 @@ text = "ThresMax"
 layout_mode = 2
 size_flags_horizontal = 1
 size_flags_vertical = 3
+value = 50.0
 
 [node name="LineEdit" type="LineEdit" parent="GUI/VBoxContainer/HBoxContainer/ThresholdMax"]
 layout_mode = 2
+
+[node name="BlockSize" parent="GUI/VBoxContainer/HBoxContainer" instance=ExtResource("3_hi88e")]
+layout_mode = 2
+
+[node name="Label" parent="GUI/VBoxContainer/HBoxContainer/BlockSize" index="0"]
+text = "Block Size"
+
+[node name="VSlider" parent="GUI/VBoxContainer/HBoxContainer/BlockSize" index="1"]
+max_value = 15.0
+value = 3.0
+
+[node name="ThreshC" parent="GUI/VBoxContainer/HBoxContainer" instance=ExtResource("3_hi88e")]
+layout_mode = 2
+
+[node name="Label" parent="GUI/VBoxContainer/HBoxContainer/ThreshC" index="0"]
+text = "Threshold C"
+
+[node name="VSlider" parent="GUI/VBoxContainer/HBoxContainer/ThreshC" index="1"]
+max_value = 30.0
+value = 5.0
+
+[connection signal="update_value" from="GUI/VBoxContainer/ThreshSettings/ImageType/OptionButton" to="." method="_update_image_type"]
+[connection signal="update_value" from="GUI/VBoxContainer/ThreshSettings/ThreshButton/OptionButton" to="." method="_update_threshold_type"]
+[connection signal="update_value" from="GUI/VBoxContainer/ThreshSettings/AdaptiveThreshType/OptionButton" to="." method="_update_adaptive_thresh_type"]
+[connection signal="update_value" from="GUI/VBoxContainer/HBoxContainer/Threshold" to="." method="_update_threshold_value"]
+[connection signal="update_value" from="GUI/VBoxContainer/HBoxContainer/ThresholdMax" to="." method="_update_threshold_max_value"]
+[connection signal="update_value" from="GUI/VBoxContainer/HBoxContainer/BlockSize" to="." method="_update_block_size"]
+[connection signal="update_value" from="GUI/VBoxContainer/HBoxContainer/ThreshC" to="." method="_update_threshold_c"]
+
+[editable path="GUI/VBoxContainer/ThreshSettings/ImageType"]
+[editable path="GUI/VBoxContainer/ThreshSettings/ThreshButton"]
+[editable path="GUI/VBoxContainer/ThreshSettings/AdaptiveThreshType"]
+[editable path="GUI/VBoxContainer/HBoxContainer/Threshold"]
+[editable path="GUI/VBoxContainer/HBoxContainer/BlockSize"]
+[editable path="GUI/VBoxContainer/HBoxContainer/ThreshC"]

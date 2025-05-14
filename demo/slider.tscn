@@ -1,17 +1,20 @@
-[gd_scene format=3 uid="uid://tyew70wx006o"]
+[gd_scene load_steps=2 format=3 uid="uid://tyew70wx006o"]
+
+[ext_resource type="Script" uid="uid://rn1dlddi5eio" path="res://scripts/SliderBehaviour.gd" id="1_kiqxe"]
 
 [node name="Threshold" type="VBoxContainer"]
+script = ExtResource("1_kiqxe")
 
 [node name="Label" type="Label" parent="."]
 layout_mode = 2
-text = "Threshold"
+text = "Placeholder"
 
 [node name="VSlider" type="VSlider" parent="."]
 layout_mode = 2
 size_flags_horizontal = 1
 size_flags_vertical = 3
 max_value = 255.0
+value = 100.0
 
 [node name="LineEdit" type="LineEdit" parent="."]
 layout_mode = 2
-placeholder_text = "255"

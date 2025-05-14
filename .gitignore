@@ -5,3 +5,7 @@ src/*.obj
 
 # pyhton venv
 .venv
+
+# vscode
+.vscode
+*.code-workspace

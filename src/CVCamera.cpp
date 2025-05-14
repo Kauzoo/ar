@@ -25,7 +25,13 @@ void CVCamera::_bind_methods()
     ClassDB::bind_method(D_METHOD("flip"), &CVCamera::flip);
     ClassDB::bind_method(D_METHOD("get_framerate"), &CVCamera::get_framerate);
     ClassDB::bind_method(D_METHOD("get_threshold_image"), &CVCamera::get_threshold_image);
-    ClassDB::bind_method(D_METHOD("update_threshold_values"), &CVCamera::update_threshold_values);
+    ClassDB::bind_method(D_METHOD("get_greyscale_image"), &CVCamera::get_greyscale_image);
+    ClassDB::bind_method(D_METHOD("update_threshold_value"), &CVCamera::update_threshold_value);
+    ClassDB::bind_method(D_METHOD("update_thres_type"), &CVCamera::update_thres_type);
+    ClassDB::bind_method(D_METHOD("update_threshold_max_value"), &CVCamera::update_threshold_max_value);
+    ClassDB::bind_method(D_METHOD("update_threshold_adaptive_type"), &CVCamera::update_threshold_adaptive_type);  
+    ClassDB::bind_method(D_METHOD("update_threshold_blocksize"), &CVCamera::update_threshold_blocksize);  
+    ClassDB::bind_method(D_METHOD("update_threshold_c"), &CVCamera::update_threshold_c);
 }
 
 CVCamera::CVCamera()
@@ -154,12 +160,19 @@ Ref<Image> CVCamera::get_image()
     return mat_to_image(frame_rgb);
 }
 
+Ref<Image> CVCamera::get_greyscale_image()
+{
+    update_frame();
+    return mat_to_image(frame_gray);
+}
+
 Ref<Image> CVCamera::get_threshold_image()
 {
     update_frame();
-    if (threshold_value <= 0) {
+    if (threshold_value <= 0.2) {
         // Adaptive threshold
-        cv::adaptiveThreshold(frame_gray, frame_threshold, 1.0, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 3, 1);
+        // TODO Fix threshold type to limit values to applicable range
+        cv::adaptiveThreshold(frame_gray, frame_threshold, threshold_max_value, threshold_adaptive_type, threshold_simple_type, threshold_blocksize, threshold_c);
     } else {
         // Use simple threshold for thresh values: 0 < thresh < 255
         cv::threshold(frame_gray, frame_threshold, threshold_value, threshold_max_value, threshold_simple_type);
@@ -173,10 +186,14 @@ void CVCamera::flip(bool flip_lr, bool flip_ud)
     this->flip_ud = flip_ud;
 }
 
-void CVCamera::update_threshold_values(double thres_val, double thres_max_val)
+void CVCamera::update_threshold_value(double thres_val)
 {
     this->threshold_value = thres_val;
-    this->threshold_max_value = thres_max_val;
+}
+
+void CVCamera::update_threshold_max_value(double max_val)
+{
+    this->threshold_max_value = max_val;
 }
 
 void CVCamera::update_thres_type(int type)
@@ -184,6 +201,21 @@ void CVCamera::update_thres_type(int type)
     this->threshold_simple_type = type;
 }
 
+void CVCamera::update_threshold_adaptive_type(int type)
+{
+    this->threshold_adaptive_type = type;
+}
+
+void CVCamera::update_threshold_blocksize(float blocksize)
+{
+    this->threshold_blocksize = (int) blocksize;
+}
+
+void CVCamera::update_threshold_c(double c)
+{
+    this->threshold_c = c;
+}
+ 
 double CVCamera::get_framerate() const
 {
     return framerate;

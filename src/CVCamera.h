@@ -68,11 +68,16 @@ public:
     void open_file(String path);
     void close();
     Ref<Image> get_image();
+    Ref<Image> get_greyscale_image();
     Ref<Image> get_threshold_image();
     void flip(bool flip_lr, bool flip_ud);
     double get_framerate() const;
-    void update_threshold_values(double thres_val, double thres_max_val);
+    void update_threshold_value(double thres_val);
+    void update_threshold_max_value(double max_val);
     void update_thres_type(int type);
+    void update_threshold_adaptive_type(int type);
+    void update_threshold_blocksize(float blocksize);
+    void update_threshold_c(double c);
 };
 
 } //namespace godot

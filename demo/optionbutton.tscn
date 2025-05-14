@@ -1,0 +1,21 @@
+[gd_scene load_steps=2 format=3 uid="uid://dwrw7oynkgj5b"]
+
+[ext_resource type="Script" uid="uid://bie3s8yjn0p3n" path="res://scripts/OptionButtonBehaviour.gd" id="1_6d6ah"]
+
+[node name="OptionButton" type="VBoxContainer"]
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 2
+text = "Place Holder"
+
+[node name="OptionButton" type="OptionButton" parent="."]
+layout_mode = 2
+selected = 0
+item_count = 3
+popup/item_0/text = "TEMP1"
+popup/item_0/id = 0
+popup/item_1/text = "TEMP2"
+popup/item_1/id = 1
+popup/item_2/text = "TEMP3"
+popup/item_2/id = 2
+script = ExtResource("1_6d6ah")

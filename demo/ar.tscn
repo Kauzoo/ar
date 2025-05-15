@@ -14,9 +14,9 @@
 
 [node name="Demo" type="Node2D" node_paths=PackedStringArray("camera_canvas", "overlay_canvas") groups=["cvcamera"]]
 script = ExtResource("1_2ycnw")
+video_path = "res://assets/MarkerCube.mp4"
 camera_canvas = NodePath("Canvases/CameraCanvasMain")
 overlay_canvas = NodePath("Canvases/CameraCanvasRect")
-video_path = "res://assets/MarkerCube.mp4"
 
 [node name="Canvases" type="Marker2D" parent="."]
 gizmo_extents = 142.0

@@ -10,4 +10,6 @@ printf "3) Attempting to build godot-cpp"
 sh ./build_gdcppbindings.sh
 printf "4) Generating compiledb.json"
 scons compiledb=yes
+printf "5) Attempting to build gdextension"
+scons platform=linux
 printf "Done"

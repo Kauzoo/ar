@@ -240,7 +240,7 @@ void CVCamera::find_rectangles()
         auto edge_d = cv::Point2f(approx[3]) - cv::Point2f(approx[2]);
         auto circle_color = cv::Scalar(0, 255, 0);
         std::vector<cv::Point> subdivision_vector;
-        for (auto j = 1; j <= 7; j++) {
+        for (auto j = 1; j < 7; j++) {
             std::vector<cv::Point2f> buf;
             buf.insert(buf.begin(), cv::Point2f(approx[0]) + edge_a * (j / 7.0));
             buf.insert(buf.begin(), cv::Point2f(approx[0]) + edge_b * (j / 7.0));
@@ -250,6 +250,7 @@ void CVCamera::find_rectangles()
                 cv::circle(frame_overlay, buf[k], 3, circle_color);
             }
         }
+        //cv::Sobel()
     }
     return;
 }
@@ -258,6 +259,27 @@ void CVCamera::flip(bool flip_lr, bool flip_ud)
 {
     this->flip_lr = flip_lr;
     this->flip_ud = flip_ud;
+}
+
+void calculateStripDimensions(double dx, double dy, StripDimensions &st)
+{
+
+}
+
+int subpixSampleSafe(const cv::Mat &pSrc, const cv::Point2f &p)
+{
+    int x = int( floorf ( p.x ) );
+    int y = int( floorf ( p.y ) );
+    if ( x < 0 || x >= pSrc.cols - 1 || y < 0 || y >= pSrc.rows - 1 )
+        return 127; // TODO Why is 127 returned?
+    // ( p.x - floorf ( p.x ) ) <=> Calculate the ratio of normal pixel area covered by the subpixel
+    int dx = int ( 256 * ( p.x - floorf ( p.x ) ) );    // TODO Why scale with 256?
+    int dy = int ( 256 * ( p.y - floorf ( p.y ) ) );
+    auto i = ( unsigned char* ) ( ( pSrc.data + y * pSrc.step ) + x );
+    int a = i[ 0 ] + ( ( dx * ( i[ 1 ] - i[ 0 ] ) ) >> 8 );
+    i += pSrc.step;
+    int b = i[ 0 ] + ( ( dx * ( i[ 1 ] - i[ 0 ] ) ) >> 8 );
+    return a + ( ( dy * ( b - a) ) >> 8 );
 }
 
 void CVCamera::update_threshold_value(double thres_val)

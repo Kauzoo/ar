@@ -85,6 +85,10 @@ public:
     void flip(bool flip_lr, bool flip_ud);
     double get_framerate() const;
 
+    // Helper functions
+    void calculateStripDimensions(double dx, double dy, StripDimensions &st);
+    int subpixSampleSafe(const cv::Mat &pSrc, const cv::Point2f &p);
+
     // GUI
     void update_threshold_value(double thres_val);
     void update_threshold_max_value(double max_val);

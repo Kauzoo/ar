@@ -4,6 +4,7 @@ src/*.os
 src/*.obj
 build/
 *.zip
+run_godot.sh
 
 # pyhton venv
 .venv

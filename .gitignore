@@ -3,6 +3,7 @@ opencv/*
 src/*.os
 src/*.obj
 build/
+*.zip
 
 # pyhton venv
 .venv

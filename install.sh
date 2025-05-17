@@ -1,33 +1,39 @@
-#!/bin/sh
-EXTENSION_API_PATH=../gdextension-api-files/gd4.4_linux_extension_api.json
+#!/bin/bash
+OPENCV_VERSION=4.9.0
+OPENCV_BUILD_LIST=core,imgcodecs,imgproc,videoio,objdetect,video,tracking
 PLATFORM=linux
-EXPORT_DIR=./opencv
-printf "Running default linux install"
-printf "REQUIREMENTS"
-printf "Docker (installed and running)\nScons\nGodot_v4.4"
-printf "\n1) Attempting to install opencv shared objects"
+EXTENSION_API_PATH=../gdextension-api-files/gd4.4_linux_extension_api.json
 
-docker create --pull missing --name ar-docker-export kauzoo/ar-exporter:latest
-echo Exporting to $EXPORT_DIR
-echo Exporting .so to $EXPORT_DIR/lib
-mkdir opencv
-docker cp ar-docker-export:/home/ardocker/export/opencv/lib/ $EXPORT_DIR/lib
-echo Exporting headers to $EXPORT_DIR/include
-docker cp ar-docker-export:/home/ardocker/export/opencv/include/opencv4/ $EXPORT_DIR/include
-docker rm ar-docker-export
 
-printf "2) Attempting to add opencv shared objects to project"
-cp -r $EXPORT_DIR/lib/*.so* demo/bin/
+echo "PREREQUISITES"
+echo "- CPP-COMPILER: g++"
+echo "- BUILD TOOLS: scons, cmake"
+echo "- OTHER: winget, git"
 
-printf "3) Attempting to build godot-cpp"
+
+echo "STEP 1 : BUILD OPENCV"
+wget -v -O opencv.zip https://github.com/opencv/opencv/archive/refs/tags/$OPENCV_VERSION.zip
+wget -v -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/refs/tags/$OPENCV_VERSION.zip
+unzip opencv.zip && unzip opencv_contrib.zip && rm -vf opencv.zip && rm -vf opencv_contrib.zip
+mkdir {build,opencv}
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=../opencv -DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib-$OPENCV_VERSION/modules -DBUILD_LIST=$OPENCV_BUILD_LIST -DWITH_FFMPEG=ON ../opencv-$OPENCV_VERSION
+cmake --build . --target install
+cd ..
+rm -vrf opencv_contrib-$OPENCV_VERSION && rm -vrf opencv-$OPENCV_VERSION
+
+echo "STEP 2 : ADD libopencv_*.so* TO demo/bin"
+cp -v -r opencv/lib/libopencv_* demo/bin/
+
+echo "STEP 3 : BUILD godot-cpp"
 cd godot-cpp
 git submodule update --init
 scons platform=$PLATFORM custom_api_file=$EXTENSION_API_PATH
 cd ..
 
-printf "4) Generating compiledb.json"
+echo "STEP 4 : GENERATE compiledb.json"
 scons compiledb=yes
 
-printf "5) Attempting to build gdextension"
-scons platform=linux
-printf "Done"
+echo "STEP 5 : BUILD gdextension"
+scons platform=$PLATFORM
+echo Done

@@ -23,7 +23,7 @@ library_paths = [
 header_paths = [
     "src/",
     "opencv/build/include",
-    "opencv/include"
+    "opencv/include/opencv4"
 ]
 
 library_files = {
@@ -47,9 +47,7 @@ library_files = {
         'libopencv_videoio.so',
         'libopencv_objdetect.so',
         'libopencv_video.so',
-        'libopencv_tracking.so',
-        'libopencv_videoio_ffmpeg.so',
-        'libavcodec.so'
+        'libopencv_tracking.so'
     ]
 }
 

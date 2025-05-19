@@ -238,19 +238,42 @@ void CVCamera::find_rectangles()
         auto edge_b = cv::Point2f(approx[3]) - cv::Point2f(approx[0]);
         auto edge_c = cv::Point2f(approx[1]) - cv::Point2f(approx[2]);
         auto edge_d = cv::Point2f(approx[3]) - cv::Point2f(approx[2]);
+        for (auto j = 0; j < approx.size(); j++)
+        {
+            cv::circle(frame_overlay, approx[j], 4, cv::Scalar(50, 0, 50 + j * 50), cv::FILLED);
+        }
         auto circle_color = cv::Scalar(0, 255, 0);
+
+        std::vector<cv::Point2f> edges;
+        edges.push_back(edge_a);
+        edges.push_back(edge_b);
+        edges.push_back(edge_c);
+        edges.push_back(edge_d);
+        std::vector<StripDimensions> strips;
+
+        for (auto j = 0; j < edges.size(); j++)
+        {
+            const double dx = edges[j].x;
+            const double dy = edges[j].y;
+            StripDimensions strip;
+            calculateStripDimensions(dx, dy, strip);
+            strips.push_back(strip);
+        }
+
         std::vector<cv::Point> subdivision_vector;
         for (auto j = 1; j < 7; j++) {
             std::vector<cv::Point2f> buf;
-            buf.insert(buf.begin(), cv::Point2f(approx[0]) + edge_a * (j / 7.0));
-            buf.insert(buf.begin(), cv::Point2f(approx[0]) + edge_b * (j / 7.0));
-            buf.insert(buf.begin(), cv::Point2f(approx[2]) + edge_c * (j / 7.0));
-            buf.insert(buf.begin(), cv::Point2f(approx[2]) + edge_d * (j / 7.0));
+            buf.push_back(cv::Point2f(approx[0]) + edge_a * (j / 7.0));
+            buf.push_back(cv::Point2f(approx[0]) + edge_b * (j / 7.0));
+            buf.push_back(cv::Point2f(approx[2]) + edge_c * (j / 7.0));
+            buf.push_back(cv::Point2f(approx[2]) + edge_d * (j / 7.0));
+
             for (auto k = 0; k < buf.size(); k++) {
+                cv::Point2f out_subpix_edge_point;
+                calculateSubpixEdgePoint(buf[k], strips[k], out_subpix_edge_point);
                 cv::circle(frame_overlay, buf[k], 3, circle_color);
             }
         }
-        //cv::Sobel()
     }
     return;
 }
@@ -261,25 +284,144 @@ void CVCamera::flip(bool flip_lr, bool flip_ud)
     this->flip_ud = flip_ud;
 }
 
-void calculateStripDimensions(double dx, double dy, StripDimensions &st)
+void CVCamera::calculateStripDimensions(double dx, double dy, StripDimensions &st)
 {
+    constexpr int strip_width = 3;
+    // TODO Should dx, dy be the components of the edge or the subdivided edge
+    const double edge_length = sqrt(dx*dx + dy*dy);
+    // TODO Unsure about strip length calculation
+    // int stripeLength = (int)(0.8*sqrt (dx*dx+dy*dy)); (from Tutorial Slides)
+    // What is dx, dy ? (see above)
+    // Why 0.8? no clue
 
+    st.stripLength = cv::max(5, (int) (0.8 * edge_length));
+    if (st.stripLength % 2 == 0)
+        st.stripLength += 1;
+    st.stripSize = cv::Size(strip_width, st.stripLength);
+    st.stripeVecX = cv::Point2f(dx / edge_length, dy / edge_length);
+    st.stripeVecY = cv::Point2f(st.stripeVecX.y, -st.stripeVecX.x);
 }
 
-int subpixSampleSafe(const cv::Mat &pSrc, const cv::Point2f &p)
+void CVCamera::calculateSubpixEdgePoint(cv::Point2f subdivision_edge_point, StripDimensions strip_dimensions, cv::Point2f &out_subpix_edge_point)
 {
-    int x = int( floorf ( p.x ) );
-    int y = int( floorf ( p.y ) );
-    if ( x < 0 || x >= pSrc.cols - 1 || y < 0 || y >= pSrc.rows - 1 )
-        return 127; // TODO Why is 127 returned?
-    // ( p.x - floorf ( p.x ) ) <=> Calculate the ratio of normal pixel area covered by the subpixel
-    int dx = int ( 256 * ( p.x - floorf ( p.x ) ) );    // TODO Why scale with 256?
-    int dy = int ( 256 * ( p.y - floorf ( p.y ) ) );
-    auto i = ( unsigned char* ) ( ( pSrc.data + y * pSrc.step ) + x );
-    int a = i[ 0 ] + ( ( dx * ( i[ 1 ] - i[ 0 ] ) ) >> 8 );
+    // Compute Strip
+    // cv::Point point_approx_edge; ORIGINAL - Why would I use ints here?
+    cv::Point2f point_approx_edge;
+    point_approx_edge.x = (int)subdivision_edge_point.x;
+    point_approx_edge.y = (int)subdivision_edge_point.y;
+
+    auto image_pixel_strip = fillStrip(point_approx_edge, strip_dimensions);
+
+    // Sobel over the y direction
+    cv::Mat sobel_gradient_y;
+    cv::Sobel(image_pixel_strip, sobel_gradient_y, CV_8UC1, 0, 1);
+
+    // Finding the max value
+    double max_intensity = -1;
+    int max_intensity_index = 0;
+    for (int n = 0; n < strip_dimensions.stripLength - 2; ++n)
+    {
+        if (sobel_gradient_y.at<uchar>(n, 1) > max_intensity)
+        {
+            max_intensity = sobel_gradient_y.at<uchar>(n, 1);
+            max_intensity_index = n;
+        }
+    }
+
+    // f(x) slide 7 -> y0 .. y1 .. y2
+    double y0, y1, y2;
+
+    // Point before and after
+    unsigned int max1 = max_intensity_index - 1, max2 = max_intensity_index + 1;
+
+    // If the index is at the border we are out of the stripe, then we will take 0
+    y0 = (max_intensity_index <= 0) ? 0 : sobel_gradient_y.at<uchar>(max1, 1);
+    y1 = sobel_gradient_y.at<uchar>(max_intensity_index, 1);
+    // If we are going out of the array of the sobel values
+    y2 = (max_intensity_index >= strip_dimensions.stripLength - 3) ? 0 : sobel_gradient_y.at<uchar>(max2, 1);
+
+    // Formula for calculating the x-coordinate of the vertex of a parabola, given 3 points with equal distances
+    // (xv means the x value of the vertex, d the distance between the points):
+    // xv = x1 + (d / 2) * (y2 - y0)/(2*y1 - y0 - y2)
+
+    // d = 1 because of the normalization and x1 will be added later
+    double pos = (y2 - y0) / (4 * y1 - 2 * y0 - 2 * y2);
+
+    // What happens when there is no solution -> /0 or Number == other Number
+    // If the found pos is not a number -> there is no solution
+    if (std::isnan(pos))
+    {
+        return;
+    }
+
+    // Exact point with subpixel accuracy
+    cv::Point2d edge_center_subpix;
+
+    // Where is the edge (max gradient) in the picture?
+    int max_index_shift = max_intensity_index - (strip_dimensions.stripLength >> 1);
+
+    // Find the original edgepoint -> Is the pixel point at the top or bottom?
+    edge_center_subpix.x = (double)point_approx_edge.x + (((double)max_index_shift + pos) * strip_dimensions.stripeVecY.x);
+    edge_center_subpix.y = (double)point_approx_edge.y + (((double)max_index_shift + pos) * strip_dimensions.stripeVecY.y);
+
+    // Highlight the subpixel with blue color
+    if (true)
+    {
+        cv::circle(frame_overlay, edge_center_subpix, 2, CV_RGB(0, 0, 255), -1);
+    }
+
+    // Save point (has to be k-1 as we only have an array of size 6 but loop through 7 points)
+    out_subpix_edge_point = edge_center_subpix;
+}
+
+int CVCamera::subpixSampleSafe(const cv::Mat &pSrc, const cv::Point2f &p)
+{
+    int x = int(floorf(p.x));
+    int y = int(floorf(p.y));
+    if (x < 0 || x >= pSrc.cols - 1 || y < 0 || y >= pSrc.rows - 1)
+        return 127;
+    int dx = int(256 * (p.x - floorf(p.x)));
+    int dy = int(256 * (p.y - floorf(p.y)));
+    unsigned char *i = (unsigned char *)((pSrc.data + y * pSrc.step) + x);
+    int a = i[0] + ((dx * (i[1] - i[0])) >> 8);
     i += pSrc.step;
-    int b = i[ 0 ] + ( ( dx * ( i[ 1 ] - i[ 0 ] ) ) >> 8 );
-    return a + ( ( dy * ( b - a) ) >> 8 );
+    int b = i[0] + ((dx * (i[1] - i[0])) >> 8);
+    return a + ((dy * (b - a)) >> 8);
+}
+
+cv::Mat CVCamera::fillStrip(cv::Point2f &center, StripDimensions &st)
+{
+    cv::Mat iplStripe( st.stripSize, CV_8UC1 );
+    auto stripeCenter = cv::Point2i(st.stripSize.width / 2, st.stripSize.height / 2);
+    iplStripe.at<uchar>(stripeCenter) = subpixSampleSafe(frame_gray, center);
+    for (int i = 1; i <= (st.stripSize.width / 2); i++)
+    {
+        auto stripeCenter_tmp = cv::Point2i(stripeCenter.x + i, stripeCenter.y);
+        // Side A
+        cv::Point2f center_tmp = center + (float)i * st.stripeVecX;
+        for (int j = 1; j <= (st.stripSize.height / 2); j++)
+        {
+            auto subPixelA = center_tmp + (float)j * st.stripeVecY;
+            auto subPixelB = center_tmp - (float)j * st.stripeVecY;
+            cv::circle(frame_overlay, subPixelA, 1, cv::Scalar(0, 0, 255), cv::FILLED);
+            cv::circle(frame_overlay, subPixelB, 1, cv::Scalar(0, 0, 255), cv::FILLED);
+            iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y + j) = subpixSampleSafe(frame_gray, subPixelA);
+            iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y - j) = subpixSampleSafe(frame_gray, subPixelB);
+        }
+
+        // Side B
+        stripeCenter_tmp = cv::Point2i(stripeCenter.x - i, stripeCenter.y);
+        for (int j = 1; j <= (st.stripSize.height / 2); j++)
+        {
+            auto subPixelA = center_tmp + (float)j * st.stripeVecY;
+            auto subPixelB = center_tmp - (float)j * st.stripeVecY;
+            cv::circle(frame_overlay, subPixelA, 1, cv::Scalar(0, 0, 255), cv::FILLED);
+            cv::circle(frame_overlay, subPixelB, 1, cv::Scalar(0, 0, 255), cv::FILLED);
+            iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y + j) = subpixSampleSafe(frame_gray, subPixelA);
+            iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y - j) = subpixSampleSafe(frame_gray, subPixelB);
+        }
+    }
+    return iplStripe;
 }
 
 void CVCamera::update_threshold_value(double thres_val)

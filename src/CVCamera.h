@@ -21,8 +21,9 @@ struct StripDimensions {
     int stripLength;
     int nStop;
     int nStart;
-    cv::Point2f stripeVecX;
-    cv::Point2f stripeVecY;
+    cv::Point2f stripeVecX; // Vector in edge direction
+    cv::Point2f stripeVecY; // Vevtor orhtogonal to VecX
+    cv::Size stripSize;     // Dimensions should always be odd numbers
 };
 
 
@@ -87,7 +88,9 @@ public:
 
     // Helper functions
     void calculateStripDimensions(double dx, double dy, StripDimensions &st);
+    cv::Mat fillStrip(cv::Point2f &center, StripDimensions &st);
     int subpixSampleSafe(const cv::Mat &pSrc, const cv::Point2f &p);
+    void calculateSubpixEdgePoint(cv::Point2f subdivision_edge_point, StripDimensions strip_dimensions,cv::Point2f &out_subpix_edge_point);
 
     // GUI
     void update_threshold_value(double thres_val);

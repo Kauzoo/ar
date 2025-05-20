@@ -19,6 +19,8 @@ overlay_canvas = NodePath("Canvases/CameraCanvasRect")
 video_path = "res://assets/MarkerCube.mp4"
 
 [node name="Canvases" type="Marker2D" parent="."]
+position = Vector2(-469.285, -65.115)
+scale = Vector2(1.515, 1.515)
 gizmo_extents = 142.0
 
 [node name="CameraCanvasRect" type="Sprite2D" parent="Canvases"]
@@ -120,6 +122,9 @@ layout_mode = 2
 [node name="Label" parent="GUI/VBoxContainer/HBoxContainer/Threshold" index="0"]
 text = "Threshold"
 
+[node name="VSlider" parent="GUI/VBoxContainer/HBoxContainer/Threshold" index="1"]
+value = 0.0
+
 [node name="ThresholdMax" type="VBoxContainer" parent="GUI/VBoxContainer/HBoxContainer"]
 layout_mode = 2
 script = ExtResource("3_tcknp")
@@ -132,7 +137,7 @@ text = "ThresMax"
 layout_mode = 2
 size_flags_horizontal = 1
 size_flags_vertical = 3
-value = 50.0
+value = 10.0
 
 [node name="LineEdit" type="LineEdit" parent="GUI/VBoxContainer/HBoxContainer/ThresholdMax"]
 layout_mode = 2

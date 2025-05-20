@@ -88,6 +88,7 @@ public:
 
     // Helper functions
     void calculateStripDimensions(double dx, double dy, StripDimensions &st);
+    std::array<cv::Point2f, 4> calculateSubpixCorners(float subpix_line_params[16], bool draw_on_overlay);
     cv::Mat fillStrip(cv::Point2f &center, StripDimensions &st);
     int subpixSampleSafe(const cv::Mat &pSrc, const cv::Point2f &p);
     void calculateSubpixEdgePoint(cv::Point2f subdivision_edge_point, StripDimensions strip_dimensions,cv::Point2f &out_subpix_edge_point);

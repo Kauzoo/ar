@@ -11,6 +11,7 @@ Sandro Weber <sandro.weber@tum.de>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <bitset>
+#include <opencv2/imgproc.hpp>
 
 using namespace godot;
 
@@ -240,7 +241,7 @@ void CVCamera::find_rectangles()
         auto edge_d = cv::Point2f(approx[3]) - cv::Point2f(approx[2]);
         for (auto j = 0; j < approx.size(); j++)
         {
-            cv::circle(frame_overlay, approx[j], 4, cv::Scalar(50, 0, 50 + j * 50), cv::FILLED);
+            //cv::circle(frame_overlay, approx[j], 4, cv::Scalar(50, 0, 50 + j * 50), cv::FILLED);
         }
         auto circle_color = cv::Scalar(0, 255, 0);
 
@@ -261,6 +262,16 @@ void CVCamera::find_rectangles()
         }
 
         std::vector<cv::Point> subdivision_vector;
+        std::vector<cv::Point2f> edgeA_points;
+        std::vector<cv::Point2f> edgeB_points;
+        std::vector<cv::Point2f> edgeC_points;
+        std::vector<cv::Point2f> edgeD_points;
+        std::vector<std::vector<cv::Point2f>> edge_points;
+        edge_points.push_back(edgeA_points);
+        edge_points.push_back(edgeB_points);
+        edge_points.push_back(edgeC_points);
+        edge_points.push_back(edgeD_points);
+
         for (auto j = 1; j < 7; j++) {
             std::vector<cv::Point2f> buf;
             buf.push_back(cv::Point2f(approx[0]) + edge_a * (j / 7.0));
@@ -271,10 +282,54 @@ void CVCamera::find_rectangles()
             for (auto k = 0; k < buf.size(); k++) {
                 cv::Point2f out_subpix_edge_point;
                 calculateSubpixEdgePoint(buf[k], strips[k], out_subpix_edge_point);
+                edge_points[k].push_back(out_subpix_edge_point);
+
+                // Draws green circles on the overlay to mark subivision edge points
                 cv::circle(frame_overlay, buf[k], 3, circle_color);
             }
         }
+
+        float subpix_line_params[16];
+        cv::Mat lineParamsMat( cv::Size(4, 4), CV_32F, subpix_line_params);
+
+        for (auto j = 0; j < 4; j++)
+        {
+            for (auto k = 0; k < 6; k++)
+            {
+                auto yo = std::to_string(edge_points[j][k].x);
+                auto yo2 = std::to_string(edge_points[j][k].y);
+                auto str = "Edge Point X:" + yo + " Y:" + yo2 + "\n";
+                //UtilityFunctions::print(str.c_str());
+            }
+
+            auto tmp = edge_points[j].data();
+            for (auto k = 0; k < 6; k++)
+            {
+                auto tmp2 = tmp[k];
+                auto yo = "PointMat: X:" + std::to_string(tmp2.x) + "Y: " + std::to_string(tmp2.y) + "\n";
+                UtilityFunctions::print(yo.c_str());
+            }
+
+            auto s = edge_points[j].data();
+            auto point_mat = cv::Mat( cv::Size(1, 6), CV_32FC2, s);
+            cv::fitLine ( point_mat, lineParamsMat.col(j), cv::DIST_L2, 0, 0.01, 0.01);
+        }
+
+        auto yo = " " + std::to_string(lineParamsMat.at<float>(0, 0)) + " " + std::to_string(lineParamsMat.at<float>(1, 0)) + " "
+            + std::to_string(lineParamsMat.at<float>(2, 0)) + " " + std::to_string(lineParamsMat.at<float>(3, 0));
+        UtilityFunctions::push_warning(yo.c_str());
+
+
+        for (auto j = 0; j < 4; j++)
+        {
+            for (auto k = 0; k < 4; k++)
+            {
+                //subpix_line_params[4*j + k] = lineParamsMat.at<float>(k, j);
+            }
+        }
+        std::array<cv::Point2f, 4> subpixCorners = calculateSubpixCorners(subpix_line_params, true);
     }
+
     return;
 }
 
@@ -282,6 +337,92 @@ void CVCamera::flip(bool flip_lr, bool flip_ud)
 {
     this->flip_lr = flip_lr;
     this->flip_ud = flip_ud;
+}
+
+std::array<cv::Point2f, 4> CVCamera::calculateSubpixCorners(float subpix_line_params[16], bool draw_on_overlay)
+{
+    std::array<cv::Point2f, 4> subpix_corners;
+    for (auto i = 0; i < 16; i++)
+    {
+        //UtilityFunctions::push_warning(subpix_line_params[i]);
+    }
+
+    // Calculate the intersection points of both lines
+    for (int i = 0; i < 4; ++i)
+    {
+        // Go through the corners of the rectangle, 3 -> 0
+        int j = (i + 1) % 4;
+
+        double x0, x1, y0, y1, u0, u1, v0, v1;
+
+        // We have to jump through the 4x4 matrix, meaning the next value for the wanted line is in the next row -> +4
+        // g: Point + d*Vector
+        // g1 = (x0,y0) + scalar0*(u0,v0) == g2 = (x1,y1) + scalar1*(u1,v1)
+        x0 = subpix_line_params[i + 8];
+        y0 = subpix_line_params[i + 12];
+        x1 = subpix_line_params[j + 8];
+        y1 = subpix_line_params[j + 12];
+
+        // Direction vector
+        u0 = subpix_line_params[i];
+        v0 = subpix_line_params[i + 4];
+        u1 = subpix_line_params[j];
+        v1 = subpix_line_params[j + 4];
+
+        // (x|y) = p + s * vec --> Vector Equation
+
+        // (x|y) = p + (Ds / D) * vec
+
+        // p0.x = x0; p0.y = y0; vec0.x= u0; vec0.y=v0;
+        // p0 + s0 * vec0 = p1 + s1 * vec1
+        // p0-p1 = vec(-vec0 vec1) * vec(s0 s1)
+
+        // s0 = Ds0 / D (see cramer's rule)
+        // s1 = Ds1 / D (see cramer's rule)
+        // Ds0 = -(x0-x1)v1 + (y0-y1)u1 --> You need to just calculate one, here Ds0
+
+        // (x|y) = (p * D / D) + (Ds * vec / D)
+        // (x|y) = (p * D + Ds * vec) / D
+
+        // x0 * D + Ds0 * u0 / D    or   x1 * D + Ds1 * u1 / D     --> a / D
+        // y0 * D + Ds0 * v0 / D    or   y1 * D + Ds1 * v1 / D     --> b / D
+
+        // (x|y) = a / c;
+
+        // Cramer's rule
+        // 2 unknown a,b -> Equation system
+        double a = x1 * u0 * v1 - y1 * u0 * u1 - x0 * u1 * v0 + y0 * u0 * u1;
+        double b = -x0 * v0 * v1 + y0 * u0 * v1 + x1 * v0 * v1 - y1 * v0 * u1;
+
+        // Calculate the cross product to check if both direction vectors are parallel -> = 0
+        // c -> Determinant = 0 -> linear dependent -> the direction vectors are parallel -> No division with 0
+        double c = v1 * u0 - v0 * u1;
+        if (fabs(c) < 0.001)
+        {
+            std::cout << "lines parallel" << std::endl;
+            continue;
+        }
+
+        // We have checked for parallelism of the direction vectors
+        // -> Cramer's rule, now divide through the main determinant
+        a /= c;
+        b /= c;
+
+        // Exact corner
+        subpix_corners[i].x = a;
+        subpix_corners[i].y = b;
+
+        if (draw_on_overlay)
+        {
+            cv::Point point_draw;
+            point_draw.x = (int)subpix_corners[i].x;
+            point_draw.y = (int)subpix_corners[i].y;
+
+            circle(frame_overlay, point_draw, 5, CV_RGB(128, 0, 128), -1);
+        }
+    } // End of the loop to extract the exact corners
+
+    return subpix_corners;
 }
 
 void CVCamera::calculateStripDimensions(double dx, double dy, StripDimensions &st)
@@ -403,8 +544,8 @@ cv::Mat CVCamera::fillStrip(cv::Point2f &center, StripDimensions &st)
         {
             auto subPixelA = center_tmp + (float)j * st.stripeVecY;
             auto subPixelB = center_tmp - (float)j * st.stripeVecY;
-            cv::circle(frame_overlay, subPixelA, 1, cv::Scalar(0, 0, 255), cv::FILLED);
-            cv::circle(frame_overlay, subPixelB, 1, cv::Scalar(0, 0, 255), cv::FILLED);
+            //cv::circle(frame_overlay, subPixelA, 1, cv::Scalar(0, 0, 255), cv::FILLED);
+            //cv::circle(frame_overlay, subPixelB, 1, cv::Scalar(0, 0, 255), cv::FILLED);
             iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y + j) = subpixSampleSafe(frame_gray, subPixelA);
             iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y - j) = subpixSampleSafe(frame_gray, subPixelB);
         }
@@ -415,8 +556,8 @@ cv::Mat CVCamera::fillStrip(cv::Point2f &center, StripDimensions &st)
         {
             auto subPixelA = center_tmp + (float)j * st.stripeVecY;
             auto subPixelB = center_tmp - (float)j * st.stripeVecY;
-            cv::circle(frame_overlay, subPixelA, 1, cv::Scalar(0, 0, 255), cv::FILLED);
-            cv::circle(frame_overlay, subPixelB, 1, cv::Scalar(0, 0, 255), cv::FILLED);
+            //cv::circle(frame_overlay, subPixelA, 1, cv::Scalar(0, 0, 255), cv::FILLED);
+            //cv::circle(frame_overlay, subPixelB, 1, cv::Scalar(0, 0, 255), cv::FILLED);
             iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y + j) = subpixSampleSafe(frame_gray, subPixelA);
             iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y - j) = subpixSampleSafe(frame_gray, subPixelB);
         }

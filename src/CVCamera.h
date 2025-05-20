@@ -85,13 +85,18 @@ public:
 
     void flip(bool flip_lr, bool flip_ud);
     double get_framerate() const;
+    void frame_forward();
+    void frame_backward();
+    double get_current_frame();
+    double get_frame_count();
 
     // Helper functions
-    void calculateStripDimensions(double dx, double dy, StripDimensions &st);
+    cv::Mat calculateStripDimensions(double dx, double dy, StripDimensions &st);
     std::array<cv::Point2f, 4> calculateSubpixCorners(float subpix_line_params[16], bool draw_on_overlay);
     cv::Mat fillStrip(cv::Point2f &center, StripDimensions &st);
+    void computeStrip(cv::Point *centerPoint, StripDimensions *strip, cv::Mat *outImagePixelStrip, bool drawOnOverlay);
     int subpixSampleSafe(const cv::Mat &pSrc, const cv::Point2f &p);
-    void calculateSubpixEdgePoint(cv::Point2f subdivision_edge_point, StripDimensions strip_dimensions,cv::Point2f &out_subpix_edge_point);
+    void calculateSubpixEdgePoint(cv::Point subdivision_edge_point, cv::Point line, cv::Point2f &out_subpix_edge_point, bool draw_on_overlay);
 
     // GUI
     void update_threshold_value(double thres_val);

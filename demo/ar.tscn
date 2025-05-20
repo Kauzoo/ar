@@ -52,8 +52,9 @@ texture = SubResource("PlaceholderTexture2D_hi88e")
 [node name="GUI" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 0
-offset_right = 1925.0
+offset_right = 484.0
 offset_bottom = 1077.0
+focus_mode = 1
 
 [node name="VBoxContainer" type="VBoxContainer" parent="GUI"]
 layout_mode = 0
@@ -122,9 +123,6 @@ layout_mode = 2
 [node name="Label" parent="GUI/VBoxContainer/HBoxContainer/Threshold" index="0"]
 text = "Threshold"
 
-[node name="VSlider" parent="GUI/VBoxContainer/HBoxContainer/Threshold" index="1"]
-value = 0.0
-
 [node name="ThresholdMax" type="VBoxContainer" parent="GUI/VBoxContainer/HBoxContainer"]
 layout_mode = 2
 script = ExtResource("3_tcknp")
@@ -137,7 +135,7 @@ text = "ThresMax"
 layout_mode = 2
 size_flags_horizontal = 1
 size_flags_vertical = 3
-value = 10.0
+value = 40.0
 
 [node name="LineEdit" type="LineEdit" parent="GUI/VBoxContainer/HBoxContainer/ThresholdMax"]
 layout_mode = 2
@@ -164,10 +162,10 @@ value = 5.0
 
 [node name="Button" type="Button" parent="GUI"]
 layout_mode = 0
-offset_left = 1033.0
-offset_top = 685.0
-offset_right = 1126.0
-offset_bottom = 716.0
+offset_left = 1135.0
+offset_top = 962.0
+offset_right = 1228.0
+offset_bottom = 993.0
 toggle_mode = true
 text = "Play/Pause"
 

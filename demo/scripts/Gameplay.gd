@@ -51,6 +51,18 @@ func on_timer_framerate():
 	overlay_texture.set_image(camera.get_overlay_image())
 	overlay_canvas.texture = overlay_texture
 
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("video_pause"):
+		toggle_video_playback()
+	if (Input.is_action_pressed("video_frame_forward")):
+		frame_forward()
+	if (Input.is_action_pressed("video_frame_backward")):
+		frame_backward()
+	pass
+
+func _process(delta: float) -> void:
+	pass
+	
 # Signals
 func _update_threshold_type(type : int):
 	camera.update_thres_type(type)
@@ -82,4 +94,16 @@ func _update_adaptive_thresh_type(type : int):
 	
 func toggle_video_playback() -> void:
 	timer_framerate.paused = (!timer_framerate.paused) 
+	pass
+	
+func frame_forward() -> void:
+	timer_framerate.paused = true;
+	camera.frame_forward()
+	on_timer_framerate()
+	pass
+	
+func frame_backward() -> void:
+	timer_framerate.paused = true;
+	camera.frame_backward()
+	on_timer_framerate()
 	pass

@@ -14,6 +14,7 @@ Sandro Weber <sandro.weber@tum.de>
 #include <opencv2/imgproc.hpp>
 
 using namespace godot;
+using namespace std;
 
 typedef cv::Vec<uint8_t, 4> Pixel;
 
@@ -37,7 +38,11 @@ void CVCamera::_bind_methods()
     ClassDB::bind_method(D_METHOD("get_overlay_image"), &CVCamera::get_overlay_image);
     ClassDB::bind_method(D_METHOD("set_bounding_box_min_width"), &CVCamera::set_bounding_box_min_width);
     ClassDB::bind_method(D_METHOD("get_bounding_box_min_width"), &CVCamera::get_bounding_box_min_width);
-    
+    ClassDB::bind_method(D_METHOD("frame_forward"), &CVCamera::frame_forward);
+    ClassDB::bind_method(D_METHOD("frame_backward"), &CVCamera::frame_backward);
+    ClassDB::bind_method(D_METHOD("get_current_frame"), &CVCamera::get_current_frame);
+    ClassDB::bind_method(D_METHOD("get_frame_count"), &CVCamera::get_frame_count);
+
     ADD_PROPERTY(PropertyInfo(Variant::INT, "bounding_box_min_width"), "set_bounding_box_min_width", "get_bounding_box_min_width");
 }
 
@@ -99,6 +104,7 @@ void CVCamera::update_frame()
     if (!success && video_file_playback)
     {
         printf("looping video\n");
+
         capture.set(cv::CAP_PROP_POS_FRAMES, 0);
         success = capture.read(frame_raw);
     }
@@ -120,6 +126,28 @@ void CVCamera::update_frame()
     // TODO Wtf are we doing here?
     frame_overlay = cv::Mat::zeros(frame_raw.size(), CV_8UC4);
     cv::cvtColor(frame_overlay, frame_overlay, cv::COLOR_BGRA2RGBA);
+}
+
+void CVCamera::frame_forward()
+{
+    auto current_frame = capture.get(cv::CAP_PROP_POS_FRAMES);
+    capture.set(cv::CAP_PROP_POS_FRAMES, current_frame);
+}
+
+void CVCamera::frame_backward()
+{
+    auto current_frame = capture.get(cv::CAP_PROP_POS_FRAMES);
+    capture.set(cv::CAP_PROP_POS_FRAMES, current_frame - 1);
+}
+
+double CVCamera::get_current_frame()
+{
+    return capture.get(cv::CAP_PROP_POS_FRAMES);
+}
+
+double CVCamera::get_frame_count()
+{
+    return capture.get(cv::CAP_PROP_FRAME_COUNT);
 }
 
 Ref<Image> CVCamera::mat_to_image(cv::Mat mat)
@@ -201,20 +229,23 @@ void CVCamera::find_rectangles()
     // Find contours
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(frame_threshold, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
+
+    std::vector<std::vector<cv::Point>> rectangles;
+
     for (auto i = 0; i < contours.size(); i++)
     {
         // Approximate found cotours more efficently using polygonal curves
-        std::vector<cv::Point> approx;
-        cv::approxPolyDP(contours[i], approx, cv::arcLength(contours[i], true) * 0.02, true);
+        std::vector<cv::Point> approximation;
+        cv::approxPolyDP(contours[i], approximation, cv::arcLength(contours[i], true) * 0.02, true);
 
         // Filter for contours with 4 Points (we are only interested in boxes)
-        if (approx.size() != 4)
+        if (approximation.size() != 4)
         {
             continue;
         }
 
         // Create bounding boxes 
-        cv::Rect bounding_box = cv::boundingRect(approx);
+        cv::Rect bounding_box = cv::boundingRect(approximation);
         
         // Filter bounding boxes that are to big or small
         int max_width = frame_raw.cols - bounding_box_max_width;
@@ -225,112 +256,49 @@ void CVCamera::find_rectangles()
         }
 
         // Remove non convex contours
-        if (!cv::isContourConvex(approx))
+        if (!cv::isContourConvex(approximation))
         {
             continue;
         }
 
+        rectangles.insert(rectangles.end(), approximation);
         bool isClosed = true;
         auto color = cv::Scalar(255, 0, 0);
-        cv::polylines(frame_overlay, approx, isClosed, color);
+        cv::polylines(frame_overlay, approximation, isClosed, color);
+
+        // This array saves the edge lines create from subpixel accurate edge points
+        float subpix_line_params[16];   // Stor parameters for lines fitted trough subpixel accurate edge points
+        cv::Mat lineParamsMat(cv::Size(4, 4), CV_32F, subpix_line_params);
 
         // Subdivide edge
-        auto edge_a = cv::Point2f(approx[1]) - cv::Point2f(approx[0]);
-        auto edge_b = cv::Point2f(approx[3]) - cv::Point2f(approx[0]);
-        auto edge_c = cv::Point2f(approx[1]) - cv::Point2f(approx[2]);
-        auto edge_d = cv::Point2f(approx[3]) - cv::Point2f(approx[2]);
-        for (auto j = 0; j < approx.size(); j++)
-        {
-            //cv::circle(frame_overlay, approx[j], 4, cv::Scalar(50, 0, 50 + j * 50), cv::FILLED);
-        }
         auto circle_color = cv::Scalar(0, 255, 0);
 
-        std::vector<cv::Point2f> edges;
-        edges.push_back(edge_a);
-        edges.push_back(edge_b);
-        edges.push_back(edge_c);
-        edges.push_back(edge_d);
-        std::vector<StripDimensions> strips;
-
-        for (auto j = 0; j < edges.size(); j++)
+        // Iterate over Corners/Edges of the boxes
+        for (int edge_index = 0; edge_index < approximation.size(); edge_index++)
         {
-            const double dx = edges[j].x;
-            const double dy = edges[j].y;
-            StripDimensions strip;
-            calculateStripDimensions(dx, dy, strip);
-            strips.push_back(strip);
-        }
+            cv::Point line = approximation[(edge_index + 1) % 4] - approximation[edge_index];
+            cv::Point2f subpix_edge_points[6];
+            // Iterate 7 times to subdivide the edge
+            for (int subdiv_index = 0; subdiv_index < 7; subdiv_index++) {
+                std::vector<cv::Point2f> buf;
+                cv::Point subdivision_edge_point = approximation[edge_index] + (line * (subdiv_index / 7.0));
 
-        std::vector<cv::Point> subdivision_vector;
-        std::vector<cv::Point2f> edgeA_points;
-        std::vector<cv::Point2f> edgeB_points;
-        std::vector<cv::Point2f> edgeC_points;
-        std::vector<cv::Point2f> edgeD_points;
-        std::vector<std::vector<cv::Point2f>> edge_points;
-        edge_points.push_back(edgeA_points);
-        edge_points.push_back(edgeB_points);
-        edge_points.push_back(edgeC_points);
-        edge_points.push_back(edgeD_points);
+                // Draw markers
+                cv::circle(frame_overlay, subdivision_edge_point, 3, circle_color);
 
-        for (auto j = 1; j < 7; j++) {
-            std::vector<cv::Point2f> buf;
-            buf.push_back(cv::Point2f(approx[0]) + edge_a * (j / 7.0));
-            buf.push_back(cv::Point2f(approx[0]) + edge_b * (j / 7.0));
-            buf.push_back(cv::Point2f(approx[2]) + edge_c * (j / 7.0));
-            buf.push_back(cv::Point2f(approx[2]) + edge_d * (j / 7.0));
+                // Skip the corner
+                if (subdiv_index == 0)
+                {
+                    continue;
+                }
 
-            for (auto k = 0; k < buf.size(); k++) {
-                cv::Point2f out_subpix_edge_point;
-                calculateSubpixEdgePoint(buf[k], strips[k], out_subpix_edge_point);
-                edge_points[k].push_back(out_subpix_edge_point);
-
-                // Draws green circles on the overlay to mark subivision edge points
-                cv::circle(frame_overlay, buf[k], 3, circle_color);
+                calculateSubpixEdgePoint(subdivision_edge_point, line, subpix_edge_points[subdiv_index-1], true);
             }
+            auto point_mat = cv::Mat( cv::Size(1, 6), CV_32FC2, subpix_edge_points);    // Contains 6 Subdivision edge points
+            cv::fitLine ( point_mat, lineParamsMat.col(edge_index), cv::DIST_L2, 0, 0.01, 0.01);
+            std::array<cv::Point2f, 4> subpixCorners = calculateSubpixCorners(subpix_line_params, true);
         }
-
-        float subpix_line_params[16];
-        cv::Mat lineParamsMat( cv::Size(4, 4), CV_32F, subpix_line_params);
-
-        for (auto j = 0; j < 4; j++)
-        {
-            for (auto k = 0; k < 6; k++)
-            {
-                auto yo = std::to_string(edge_points[j][k].x);
-                auto yo2 = std::to_string(edge_points[j][k].y);
-                auto str = "Edge Point X:" + yo + " Y:" + yo2 + "\n";
-                //UtilityFunctions::print(str.c_str());
-            }
-
-            auto tmp = edge_points[j].data();
-            for (auto k = 0; k < 6; k++)
-            {
-                auto tmp2 = tmp[k];
-                auto yo = "PointMat: X:" + std::to_string(tmp2.x) + "Y: " + std::to_string(tmp2.y) + "\n";
-                UtilityFunctions::print(yo.c_str());
-            }
-
-            auto s = edge_points[j].data();
-            auto point_mat = cv::Mat( cv::Size(1, 6), CV_32FC2, s);
-            cv::fitLine ( point_mat, lineParamsMat.col(j), cv::DIST_L2, 0, 0.01, 0.01);
-        }
-
-        auto yo = " " + std::to_string(lineParamsMat.at<float>(0, 0)) + " " + std::to_string(lineParamsMat.at<float>(1, 0)) + " "
-            + std::to_string(lineParamsMat.at<float>(2, 0)) + " " + std::to_string(lineParamsMat.at<float>(3, 0));
-        UtilityFunctions::push_warning(yo.c_str());
-
-
-        for (auto j = 0; j < 4; j++)
-        {
-            for (auto k = 0; k < 4; k++)
-            {
-                //subpix_line_params[4*j + k] = lineParamsMat.at<float>(k, j);
-            }
-        }
-        std::array<cv::Point2f, 4> subpixCorners = calculateSubpixCorners(subpix_line_params, true);
     }
-
-    return;
 }
 
 void CVCamera::flip(bool flip_lr, bool flip_ud)
@@ -339,7 +307,7 @@ void CVCamera::flip(bool flip_lr, bool flip_ud)
     this->flip_ud = flip_ud;
 }
 
-std::array<cv::Point2f, 4> CVCamera::calculateSubpixCorners(float subpix_line_params[16], bool draw_on_overlay)
+std::array<cv::Point2f, 4> CVCamera::calculateSubpixCorners(float subpix_line_params[16], bool draw_on_overlay = true)
 {
     std::array<cv::Point2f, 4> subpix_corners;
     for (auto i = 0; i < 16; i++)
@@ -425,33 +393,97 @@ std::array<cv::Point2f, 4> CVCamera::calculateSubpixCorners(float subpix_line_pa
     return subpix_corners;
 }
 
-void CVCamera::calculateStripDimensions(double dx, double dy, StripDimensions &st)
+cv::Mat CVCamera::calculateStripDimensions(double dx, double dy, StripDimensions &st)
 {
-    constexpr int strip_width = 3;
-    // TODO Should dx, dy be the components of the edge or the subdivided edge
-    const double edge_length = sqrt(dx*dx + dy*dy);
-    // TODO Unsure about strip length calculation
-    // int stripeLength = (int)(0.8*sqrt (dx*dx+dy*dy)); (from Tutorial Slides)
-    // What is dx, dy ? (see above)
-    // Why 0.8? no clue
+    // Norm (euclidean distance) from the direction vector is the length (derived from the Pythagoras Theorem)
+    double diffLength = sqrt(dx * dx + dy * dy);
 
-    st.stripLength = cv::max(5, (int) (0.8 * edge_length));
+    // Length proportional to the marker size
+    st.stripLength = (int)(0.8 * diffLength);
+
+    if (st.stripLength < 5)
+        st.stripLength = 5;
+
+    // Make stripeLength odd (because of the shift in nStop), Example 6: both sides of the strip must have the same length XXXOXXX
+    // st.stripeLength |= 1;
     if (st.stripLength % 2 == 0)
-        st.stripLength += 1;
-    st.stripSize = cv::Size(strip_width, st.stripLength);
-    st.stripeVecX = cv::Point2f(dx / edge_length, dy / edge_length);
-    st.stripeVecY = cv::Point2f(st.stripeVecX.y, -st.stripeVecX.x);
+        st.stripLength++;
+
+    // E.g. stripeLength = 5 --> from -2 to 2: Shift -> half top, the other half bottom
+    // st.nStop = st.stripeLength >> 1;
+    st.nStop = st.stripLength / 2;
+    st.nStart = -st.nStop;
+
+    cv::Size stripeSize;
+
+    // Sample a strip of width 3 pixels
+    stripeSize.width = 3;
+    stripeSize.height = st.stripLength;
+
+    // Normalized direction vector
+    st.stripeVecX.x = dx / diffLength;
+    st.stripeVecX.y = dy / diffLength;
+
+    // Normalized perpendicular direction vector (rotated 90  clockwise, rotation matrix)
+    st.stripeVecY.x = st.stripeVecX.y;
+    st.stripeVecY.y = -st.stripeVecX.x;
+
+    // 8 bit unsigned char with 1 channel, gray
+    return cv::Mat(stripeSize, CV_8UC1);
 }
 
-void CVCamera::calculateSubpixEdgePoint(cv::Point2f subdivision_edge_point, StripDimensions strip_dimensions, cv::Point2f &out_subpix_edge_point)
+void CVCamera::computeStrip(cv::Point *centerPoint, StripDimensions *strip, cv::Mat *outImagePixelStrip, bool drawOnOverlay = false)
+{
+    // Iterate over width (3 pixels)
+    for (int m = -1; m <= 1; m++)
+    {
+        for (int n = strip->nStart; n <= strip->nStop; n++)
+        {
+            cv::Point2f subPixel;
+
+            // m -> going over the 3 pixel thickness of the stripe, n -> over the length of the stripe, direction comes from the orthogonal vector in st
+            // Going from bottom to top and defining the pixel coordinate for each pixel belonging to the stripe
+            subPixel.x = (double)centerPoint->x + ((double)m * strip->stripeVecX.x) + ((double)n * strip->stripeVecY.x);
+            subPixel.y = (double)centerPoint->y + ((double)m * strip->stripeVecX.y) + ((double)n * strip->stripeVecY.y);
+
+            if (drawOnOverlay)
+            {
+                // Just for markings in the image!
+                cv::Point p2;
+                p2.x = (int)subPixel.x;
+                p2.y = (int)subPixel.y;
+
+                cv::circle(frame_overlay, p2, 1, CV_RGB(255, 0, 255), -1);
+            }
+
+            // Combined Intensity of the subpixel
+            int pixelIntensity = subpixSampleSafe(frame_gray, subPixel);
+            // int pixelIntensity = (((m+1)+n) % 2) * 255; // TEST
+
+            // Converte from index to pixel coordinate
+            // m (Column, real) -> -1,0,1 but we need to map to 0,1,2 -> add 1 to 0..2
+            int w = m + 1;
+
+            // n (Row, real) -> add stripelenght >> 1 to shift to 0..stripeLength
+            // n=0 -> -length/2, n=length/2 -> 0 ........ + length/2
+            int h = n + (strip->stripLength >> 1);
+
+            // Set pointer to correct position and safe subpixel intensity
+            outImagePixelStrip->at<uchar>(h, w) = (uchar)pixelIntensity;
+        }
+    }
+}
+
+void CVCamera::calculateSubpixEdgePoint(cv::Point subdivision_edge_point, cv::Point line, cv::Point2f &out_subpix_edge_point, bool draw_on_overlay = false)
 {
     // Compute Strip
-    // cv::Point point_approx_edge; ORIGINAL - Why would I use ints here?
-    cv::Point2f point_approx_edge;
+    cv::Point point_approx_edge;
     point_approx_edge.x = (int)subdivision_edge_point.x;
     point_approx_edge.y = (int)subdivision_edge_point.y;
 
-    auto image_pixel_strip = fillStrip(point_approx_edge, strip_dimensions);
+    StripDimensions strip_dimensions;
+    cv::Mat image_pixel_strip = calculateStripDimensions(line.x / 7, line.y / 7, strip_dimensions);
+    computeStrip(&point_approx_edge, &strip_dimensions, &image_pixel_strip, draw_on_overlay);
 
     // Sobel over the y direction
     cv::Mat sobel_gradient_y;
@@ -490,7 +522,7 @@ void CVCamera::calculateSubpixEdgePoint(cv::Point2f subdivision_edge_point, Stri
 
     // What happens when there is no solution -> /0 or Number == other Number
     // If the found pos is not a number -> there is no solution
-    if (std::isnan(pos))
+    if (isnan(pos))
     {
         return;
     }
@@ -506,9 +538,9 @@ void CVCamera::calculateSubpixEdgePoint(cv::Point2f subdivision_edge_point, Stri
     edge_center_subpix.y = (double)point_approx_edge.y + (((double)max_index_shift + pos) * strip_dimensions.stripeVecY.y);
 
     // Highlight the subpixel with blue color
-    if (true)
+    if (draw_on_overlay)
     {
-        cv::circle(frame_overlay, edge_center_subpix, 2, CV_RGB(0, 0, 255), -1);
+        cv::circle(frame_overlay, edge_center_subpix, 2, CV_RGB(255, 0, 0), -1);
     }
 
     // Save point (has to be k-1 as we only have an array of size 6 but loop through 7 points)
@@ -528,41 +560,6 @@ int CVCamera::subpixSampleSafe(const cv::Mat &pSrc, const cv::Point2f &p)
     i += pSrc.step;
     int b = i[0] + ((dx * (i[1] - i[0])) >> 8);
     return a + ((dy * (b - a)) >> 8);
-}
-
-cv::Mat CVCamera::fillStrip(cv::Point2f &center, StripDimensions &st)
-{
-    cv::Mat iplStripe( st.stripSize, CV_8UC1 );
-    auto stripeCenter = cv::Point2i(st.stripSize.width / 2, st.stripSize.height / 2);
-    iplStripe.at<uchar>(stripeCenter) = subpixSampleSafe(frame_gray, center);
-    for (int i = 1; i <= (st.stripSize.width / 2); i++)
-    {
-        auto stripeCenter_tmp = cv::Point2i(stripeCenter.x + i, stripeCenter.y);
-        // Side A
-        cv::Point2f center_tmp = center + (float)i * st.stripeVecX;
-        for (int j = 1; j <= (st.stripSize.height / 2); j++)
-        {
-            auto subPixelA = center_tmp + (float)j * st.stripeVecY;
-            auto subPixelB = center_tmp - (float)j * st.stripeVecY;
-            //cv::circle(frame_overlay, subPixelA, 1, cv::Scalar(0, 0, 255), cv::FILLED);
-            //cv::circle(frame_overlay, subPixelB, 1, cv::Scalar(0, 0, 255), cv::FILLED);
-            iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y + j) = subpixSampleSafe(frame_gray, subPixelA);
-            iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y - j) = subpixSampleSafe(frame_gray, subPixelB);
-        }
-
-        // Side B
-        stripeCenter_tmp = cv::Point2i(stripeCenter.x - i, stripeCenter.y);
-        for (int j = 1; j <= (st.stripSize.height / 2); j++)
-        {
-            auto subPixelA = center_tmp + (float)j * st.stripeVecY;
-            auto subPixelB = center_tmp - (float)j * st.stripeVecY;
-            //cv::circle(frame_overlay, subPixelA, 1, cv::Scalar(0, 0, 255), cv::FILLED);
-            //cv::circle(frame_overlay, subPixelB, 1, cv::Scalar(0, 0, 255), cv::FILLED);
-            iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y + j) = subpixSampleSafe(frame_gray, subPixelA);
-            iplStripe.at<uchar>(stripeCenter_tmp.x, stripeCenter_tmp.y - j) = subpixSampleSafe(frame_gray, subPixelB);
-        }
-    }
-    return iplStripe;
 }
 
 void CVCamera::update_threshold_value(double thres_val)

@@ -6,6 +6,9 @@ var camera : CVCamera = CVCamera.new()
 @export var overlay_canvas : Sprite2D
 var texture : ImageTexture;
 var overlay_texture : ImageTexture
+var marker_textures : Array[ImageTexture]
+var marker_canvases : Array[ImageTexture]
+@export var marker_canvas_container : TabContainer
 var timer_framerate: Timer;
 var image_type : int;
 @export_file("*.mp4") var video_path : String 
@@ -34,7 +37,7 @@ func _ready():
 	timer_framerate.start(1 / framerate);
 	
 	
-func on_timer_framerate():
+func on_timer_framerate() -> void:
 	match image_type:
 		Enums.ImageType.RGB:
 			texture.set_image(camera.get_image());
@@ -50,6 +53,19 @@ func on_timer_framerate():
 	camera.find_rectangles()
 	overlay_texture.set_image(camera.get_overlay_image())
 	overlay_canvas.texture = overlay_texture
+	draw_markers()
+	
+func draw_markers() -> void:
+	var frames = camera.get_marker_frames()
+	for child in marker_canvas_container.get_children():
+		child.free()
+	for marker in frames:
+		var canvas = TextureRect.new()
+		marker_canvas_container.add_child(canvas)
+		var tex = ImageTexture.create_from_image(marker)
+		canvas.custom_minimum_size = Vector2(200, 200)
+		canvas.texture = tex
+	pass
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("video_pause"):

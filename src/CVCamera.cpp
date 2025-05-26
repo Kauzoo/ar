@@ -42,6 +42,7 @@ void CVCamera::_bind_methods()
     ClassDB::bind_method(D_METHOD("frame_backward"), &CVCamera::frame_backward);
     ClassDB::bind_method(D_METHOD("get_current_frame"), &CVCamera::get_current_frame);
     ClassDB::bind_method(D_METHOD("get_frame_count"), &CVCamera::get_frame_count);
+    ClassDB::bind_method(D_METHOD("get_marker_frames"), &CVCamera::get_marker_frames);
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "bounding_box_min_width"), "set_bounding_box_min_width", "get_bounding_box_min_width");
 }
@@ -55,6 +56,15 @@ CVCamera::CVCamera()
 CVCamera::~CVCamera()
 {
     close();
+}
+
+godot::Array CVCamera::get_marker_frames()
+{
+    Array frames{};
+    for (auto marker_frame : marker_frames) {
+        frames.push_back(mat_to_image(marker_frame));
+    }
+    return frames;
 }
 
 void CVCamera::open(int device, int width = 1920, int height = 1080)
@@ -224,8 +234,32 @@ Ref<Image> CVCamera::get_overlay_image()
     return mat_to_image(frame_overlay);
 }
 
+int CVCamera::getMarkerId(cv::Mat frame_src, std::array<cv::Point2f, 4>subpix_corners, bool draw_marker_id)
+{
+    auto pointA = cv::Point2f(-0.5, -0.5);
+    auto pointB = cv::Point2f(-0.5, 5.5);
+    auto pointC = cv::Point2f(5.5, 5.5);
+    auto pointD = cv::Point2f(5.5, -0.5);
+    std::array<cv::Point2f, 4> corners = { pointA, pointB, pointC, pointD };
+
+    auto perspective_transform = cv::getPerspectiveTransform(subpix_corners, corners);
+
+    cv::Mat marker; // TODO Why is the transformation matrix always 3x3?
+    //marker = cv::Mat::zeros(frame_raw.size(), CV_8UC4);
+    //cv::cvtColor(marker, marker, cv::COLOR_GRAY2RGB);
+    cv::warpPerspective(frame_src, marker, perspective_transform, cv::Size(6, 6));
+
+    // TODO Consider changing this to a set
+    // For debugging purposed
+    marker_frames.push_back(marker);
+    return 0;
+}
+
 void CVCamera::find_rectangles()
 {
+    // Debugging, clean marker buffer (used to display markers for debugging purposes only)
+    marker_frames.clear();
+
     // Find contours
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(frame_threshold, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
@@ -297,6 +331,7 @@ void CVCamera::find_rectangles()
             auto point_mat = cv::Mat( cv::Size(1, 6), CV_32FC2, subpix_edge_points);    // Contains 6 Subdivision edge points
             cv::fitLine ( point_mat, lineParamsMat.col(edge_index), cv::DIST_L2, 0, 0.01, 0.01);
             std::array<cv::Point2f, 4> subpixCorners = calculateSubpixCorners(subpix_line_params, true);
+            getMarkerId(frame_rgb, subpixCorners, true);
         }
     }
 }

@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://trsml2gs8ogq"]
+[gd_scene load_steps=10 format=3 uid="uid://trsml2gs8ogq"]
 
 [ext_resource type="Script" uid="uid://colbmmcey6upn" path="res://scripts/Gameplay.gd" id="1_2ycnw"]
 [ext_resource type="Script" uid="uid://c7yptghyx28ki" path="res://scripts/camera_canvas_helper.gd" id="2_hi88e"]
@@ -12,10 +12,13 @@
 
 [sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_hi88e"]
 
-[node name="Demo" type="Node2D" node_paths=PackedStringArray("camera_canvas", "overlay_canvas") groups=["cvcamera"]]
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_qclpm"]
+
+[node name="Demo" type="Node2D" node_paths=PackedStringArray("camera_canvas", "overlay_canvas", "marker_canvas_container") groups=["cvcamera"]]
 script = ExtResource("1_2ycnw")
 camera_canvas = NodePath("Canvases/CameraCanvasMain")
 overlay_canvas = NodePath("Canvases/CameraCanvasRect")
+marker_canvas_container = NodePath("Canvases/Window/TabContainer")
 video_path = "res://assets/MarkerCube.mp4"
 
 [node name="Canvases" type="Marker2D" parent="."]
@@ -48,6 +51,24 @@ gizmo_extents = 37.5
 show_behind_parent = true
 scale = Vector2(640, 480)
 texture = SubResource("PlaceholderTexture2D_hi88e")
+
+[node name="Window" type="Window" parent="Canvases"]
+title = "Markers"
+position = Vector2i(0, 36)
+size = Vector2i(300, 300)
+
+[node name="TabContainer" type="TabContainer" parent="Canvases/Window"]
+offset_right = 299.0
+offset_bottom = 300.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+current_tab = 0
+
+[node name="TextureRect" type="TextureRect" parent="Canvases/Window/TabContainer"]
+layout_mode = 2
+texture = SubResource("PlaceholderTexture2D_qclpm")
+expand_mode = 2
+metadata/_tab_index = 0
 
 [node name="GUI" type="Control" parent="."]
 layout_mode = 3

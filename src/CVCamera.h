@@ -59,6 +59,7 @@ private:
     int bounding_box_min_height = 20;
     int bounding_box_max_width = 10;     // As offset from frame size
     int bounding_box_max_height = 10;    // As offset from frame size
+    std::vector<cv::Mat> marker_frames;
 
 
     void update_frame();
@@ -89,6 +90,7 @@ public:
     void frame_backward();
     double get_current_frame();
     double get_frame_count();
+    godot::Array get_marker_frames();
 
     // Helper functions
     cv::Mat calculateStripDimensions(double dx, double dy, StripDimensions &st);
@@ -97,6 +99,7 @@ public:
     void computeStrip(cv::Point *centerPoint, StripDimensions *strip, cv::Mat *outImagePixelStrip, bool drawOnOverlay);
     int subpixSampleSafe(const cv::Mat &pSrc, const cv::Point2f &p);
     void calculateSubpixEdgePoint(cv::Point subdivision_edge_point, cv::Point line, cv::Point2f &out_subpix_edge_point, bool draw_on_overlay);
+    int getMarkerId(cv::Mat frame_src, std::array<cv::Point2f, 4>subpix_corners, bool draw_marker_id);
 
     // GUI
     void update_threshold_value(double thres_val);
